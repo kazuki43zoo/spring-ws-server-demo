@@ -114,7 +114,7 @@ public class SpringWsServerDemoApplicationTests {
     public static class WebServiceMessageSenderTimeoutAspect {
 
         @Around(value = "execution(org.springframework.ws.transport.WebServiceConnection org.springframework.ws.transport.WebServiceMessageSender.createConnection(..))")
-        public Object configureTimeout(ProceedingJoinPoint jp) throws Throwable {
+        public Object configureTimeoutHandling(ProceedingJoinPoint jp) throws Throwable {
             Object result = jp.proceed();
             return Proxy.newProxyInstance(getClass().getClassLoader(),
                     new Class[]{HeadersAwareSenderWebServiceConnection.class, WebServiceConnection.class, FaultAwareWebServiceConnection.class},
