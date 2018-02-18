@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<bindings xmlns="http://java.sun.com/xml/ns/jaxb" if-exists="true" version="2.1">
+  <!--
+
+このファイルは、JavaTM Architecture for XML Binding(JAXB) Reference Implementation、v2.2.11によって生成されました 
+<a href="http://java.sun.com/xml/jaxb">http://java.sun.com/xml/jaxb</a>を参照してください 
+ソース・スキーマの再コンパイル時にこのファイルの変更は失われます。 
+生成日: 2018.02.18 時間 04:29:57 PM JST 
+
+  -->
+  <bindings xmlns:tns="http://example.com/springwsserverdemo/services/country" if-exists="true" scd="x-schema::tns">
+    <schemaBindings map="false">
+      <package name="services.country"/>
+    </schemaBindings>
+    <bindings if-exists="true" scd="tns:getCountryRequest">
+      <class ref="services.country.GetCountryRequest"/>
+    </bindings>
+    <bindings if-exists="true" scd="tns:getCountryResponse">
+      <class ref="services.country.GetCountryResponse"/>
+    </bindings>
+    <bindings if-exists="true" scd="~tns:country">
+      <class ref="services.country.Country"/>
+    </bindings>
+    <bindings if-exists="true" scd="~tns:currency">
+      <typesafeEnumClass ref="services.country.Currency"/>
+    </bindings>
+  </bindings>
+</bindings>
