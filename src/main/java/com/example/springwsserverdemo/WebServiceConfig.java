@@ -12,12 +12,12 @@ import org.springframework.xml.xsd.XsdSchema;
 public class WebServiceConfig {
 
     @Bean(name = "countries")
-    public WsdlDefinition countriesWsdlDefinition(XsdSchema countriesSchema) {
+    public WsdlDefinition countriesWsdlDefinition() {
         DefaultWsdl11Definition wsdlDefinition = new DefaultWsdl11Definition();
         wsdlDefinition.setPortTypeName("CountriesPort");
         wsdlDefinition.setLocationUri("/services");
         wsdlDefinition.setTargetNamespace(CountryEndpoint.NAMESPACE_URI);
-        wsdlDefinition.setSchema(countriesSchema);
+        wsdlDefinition.setSchema(countriesSchema());
         return wsdlDefinition;
     }
 

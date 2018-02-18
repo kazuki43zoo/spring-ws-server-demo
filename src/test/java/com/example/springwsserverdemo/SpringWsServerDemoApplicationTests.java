@@ -13,9 +13,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.InterceptingClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.util.StreamUtils;
 import org.springframework.ws.client.core.support.WebServiceGatewaySupport;
 import org.springframework.ws.transport.FaultAwareWebServiceConnection;
 import org.springframework.ws.transport.HeadersAwareSenderWebServiceConnection;
@@ -27,30 +34,17 @@ import services.country.Currency;
 import services.country.GetCountryRequest;
 import services.country.GetCountryResponse;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {SpringWsServerDemoApplication.class, SpringWsServerDemoApplicationTests.ClientConfig.class})
 public class SpringWsServerDemoApplicationTests {
-
-    @Autowired
-    private CountryClient client;
-
-    @Test
-    public void getCountry() {
-
-        Country country = client.getCountry("Spain");
-
-        Assertions.assertThat(country).isNotNull();
-        Assertions.assertThat(country.getName()).isEqualTo("Spain");
-        Assertions.assertThat(country.getCapital()).isEqualTo("Madrid");
-        Assertions.assertThat(country.getCurrency()).isEqualTo(Currency.EUR);
-        Assertions.assertThat(country.getPopulation()).isEqualTo(46704314);
-
-    }
 
     @Configuration
     static class ClientConfig {
@@ -74,9 +68,16 @@ public class SpringWsServerDemoApplicationTests {
         @Bean
         public WebServiceMessageSender messageSender(Environment environment) {
             SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-            requestFactory.setConnectTimeout(environment.getProperty("ws.client.connect-timeout", Integer.class, 60000));
-            requestFactory.setReadTimeout(environment.getProperty("ws.client.read-timeout", Integer.class, 60000));
-            return new ClientHttpRequestMessageSender(requestFactory);
+            requestFactory.setConnectTimeout(
+                    environment.getProperty("ws.client.connect-timeout", Integer.class, 60000));
+            requestFactory.setReadTimeout(
+                    environment.getProperty("ws.client.read-timeout", Integer.class, 60000));
+            return new ClientHttpRequestMessageSender(
+                    new InterceptingClientHttpRequestFactory(
+                            new BufferingClientHttpRequestFactory(requestFactory),
+                            Collections.singletonList(new MessageLoggingInterceptor())
+                    )
+            );
         }
 
         @Bean
@@ -86,9 +87,26 @@ public class SpringWsServerDemoApplicationTests {
 
     }
 
+    @Autowired
+    private CountryClient client;
+
+    @Test
+    public void getCountry() {
+
+        Country country = client.getCountry("Spain");
+
+        Assertions.assertThat(country).isNotNull();
+        Assertions.assertThat(country.getName()).isEqualTo("Spain");
+        Assertions.assertThat(country.getCapital()).isEqualTo("Madrid");
+        Assertions.assertThat(country.getCurrency()).isEqualTo(Currency.EUR);
+        Assertions.assertThat(country.getPopulation()).isEqualTo(46704314);
+
+    }
+
     public static class CountryClient extends WebServiceGatewaySupport {
 
-        private static final Logger log = LoggerFactory.getLogger(CountryClient.class);
+        private static final Logger logger = LoggerFactory.getLogger(CountryClient.class);
+
         private final Environment environment;
 
         private CountryClient(Environment environment) {
@@ -100,12 +118,42 @@ public class SpringWsServerDemoApplicationTests {
             GetCountryRequest request = new GetCountryRequest();
             request.setName(name);
 
-            log.info("Requesting name for " + name);
+            logger.info("Requesting name for " + name);
 
             GetCountryResponse response = (GetCountryResponse) getWebServiceTemplate()
-                    .marshalSendAndReceive("http://localhost:" + this.environment.getProperty("local.server.port", "8080") + "/services", request);
+                    .marshalSendAndReceive(
+                            "http://localhost:" + this.environment.getProperty("local.server.port", "8080") + "/services",
+                            request);
 
             return response.getCountry();
+        }
+
+    }
+
+    static class MessageLoggingInterceptor implements ClientHttpRequestInterceptor {
+        private static final String PACKAGE_NAME = MessageLoggingInterceptor.class.getPackage().getName();
+        private static final Logger reqMessageLogger = LoggerFactory.getLogger(PACKAGE_NAME + ".clientReqLog");
+        private static final Logger resMessageLogger = LoggerFactory.getLogger(PACKAGE_NAME + ".clientResLog");
+
+        @Override
+        public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
+
+            if (reqMessageLogger.isInfoEnabled()) {
+                String requestBody = new String(body, StandardCharsets.UTF_8);
+                reqMessageLogger.info("Request to {} {}", request.getMethod(), request.getURI());
+                reqMessageLogger.info("Request Header {}", request.getHeaders());
+                reqMessageLogger.info("Request Body {}", requestBody);
+            }
+
+            ClientHttpResponse response = execution.execute(request, body);
+
+            if (resMessageLogger.isInfoEnabled()) {
+                resMessageLogger.info("Response Status {}", response.getStatusCode());
+                resMessageLogger.info("Response Header {}", response.getHeaders());
+                resMessageLogger.info("Response Body {}", StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8));
+            }
+
+            return response;
         }
 
     }
