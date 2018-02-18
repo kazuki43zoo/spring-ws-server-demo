@@ -75,7 +75,7 @@ public class SpringWsServerDemoApplicationTests {
             return new ClientHttpRequestMessageSender(
                     new InterceptingClientHttpRequestFactory(
                             new BufferingClientHttpRequestFactory(requestFactory),
-                            Collections.singletonList(new MessageLoggingInterceptor())
+                            Collections.singletonList(new MessageLoggingInterceptor(true))
                     )
             );
         }
@@ -131,9 +131,16 @@ public class SpringWsServerDemoApplicationTests {
     }
 
     static class MessageLoggingInterceptor implements ClientHttpRequestInterceptor {
+
         private static final String PACKAGE_NAME = MessageLoggingInterceptor.class.getPackage().getName();
         private static final Logger reqMessageLogger = LoggerFactory.getLogger(PACKAGE_NAME + ".clientReqLog");
         private static final Logger resMessageLogger = LoggerFactory.getLogger(PACKAGE_NAME + ".clientResLog");
+
+        private final boolean loggingResponseBody;
+
+        private MessageLoggingInterceptor(boolean loggingResponseBody) {
+            this.loggingResponseBody = loggingResponseBody;
+        }
 
         @Override
         public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
@@ -150,7 +157,9 @@ public class SpringWsServerDemoApplicationTests {
             if (resMessageLogger.isInfoEnabled()) {
                 resMessageLogger.info("Response Status {}", response.getStatusCode());
                 resMessageLogger.info("Response Header {}", response.getHeaders());
-                resMessageLogger.info("Response Body {}", StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8));
+                if (this.loggingResponseBody) {
+                    resMessageLogger.info("Response Body {}", StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8));
+                }
             }
 
             return response;
